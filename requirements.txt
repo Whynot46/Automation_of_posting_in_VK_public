@@ -1,0 +1,4 @@
+vk-api==11.9.9
+requests==2.31.0
+jsonlib==1.6.1
+python-time==0.3.0
