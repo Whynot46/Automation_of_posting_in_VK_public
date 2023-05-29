@@ -15,26 +15,27 @@ class VK:
             exit()
 
         self.tools = vk_api.VkTools(self.vk_session)
-        self.start_time = time.time()
+
         self.start_from = None
         self.start_parsing()
 
     def start_parsing(self):
         while True:
-
+            self.start_time = time.time()
             print(f'Начало парсинга: {self.start_time}')
 
             for source_group_id in source_group_ids:
                 current_time = time.time()
-                end_date = current_time + 10
+                end_date = current_time + 604800
 
                 try:
                     wall = self.tools.get_all('wall.get', 10,
                                               {'owner_id': int(source_group_id),
                                                'start_time': int(self.start_time),
-                                               'end_time': int(current_time), 'start_from': self.start_from})
+                                               'end_time': int(current_time), 'start_from': self.start_from,
+                                               'fields': 'access_key'})
                 except Exception as e:
-                    print(f'Ошибка при получении постов из группы {source_group_id}: {e}')
+                    print(f'Ошибка при получении постов из группы или страницы {source_group_id}: {e}')
                     continue
 
                 for post in wall['items']:
@@ -42,6 +43,28 @@ class VK:
                     if post['date'] >= self.start_time:
 
                         message = post['text'] or ' '
+
+                        # Проверяем, является ли идентификатор группой или страницей
+                        if source_group_id < 0: # если идентификатор отрицательный, то это группа
+                            try:
+                                group = self.vk.groups.getById(group_id=abs(source_group_id), v=version_vk)[0]
+                                group_name = group['name']
+                            except Exception as e:
+                                print(f'Ошибка при получении названия группы {source_group_id}: {e}')
+                                continue
+                        else: # если идентификатор положительный, то это страница
+                            try:
+                                user = self.vk.users.get(user_id=source_group_id, v=version_vk)[0]
+                                user_name = f'{user["first_name"]} {user["last_name"]}'
+                            except Exception as e:
+                                print(f'Ошибка при получении имени пользователя {source_group_id}: {e}')
+                                continue
+
+                        # Добавляем слово Источник: "Название группы или страницы откуда взят пост" к тексту поста
+                        if source_group_id < 0: # если идентификатор отрицательный, то это группа
+                            message = f'Источник: "{group_name}"\n\n{message}'
+                        else: # если идентификатор положительный, то это страница
+                            message = f'Источник: "{user_name}"\n\n{message}'
 
                         attachments = ''
                         if 'attachments' in post:
@@ -137,7 +160,8 @@ class VK:
                                         doc_title = doc_data['title']
                                         doc_ext = doc_data['ext']
                                         doc_url = doc_data['url']
-
+                                        doc_access_key = doc_data.get('access_key',
+                                                                      '')  # получить ключ доступа к документу или пустую строку, если его нет
                                         upload_url = self.vk.docs.getWallUploadServer(group_id=-owner_id,
                                                                                       v=version_vk)['upload_url']
                                         # print(upload_url)
@@ -150,35 +174,36 @@ class VK:
                                                                 title=doc_title,
                                                                 v=version_vk)['doc']
 
-                                        attachments += f'doc{doc["owner_id"]}_{doc["id"]}_{doc["access_key"]},'
+                                        attachments += f'doc{doc["owner_id"]}_{doc["id"]}_{doc_access_key},'
+
                                     except Exception as e:
                                         print(f'Ошибка при копировании документа: {e}')
-                        try:
-                            response = requests.post(
-                                url=url,
-                                params={
-                                    'access_token': token,
-                                    'from_group': from_group,
-                                    'owner_id': owner_id,
-                                    'message': message,
-                                    'attachments': attachments.strip(','),
-                                    'v': version_vk,
-                                }
-                            )
-                        except Exception as e:
-                            print(f'Ошибка при публикации поста: {e}')
-                        else:
+                                try:
+                                    response = requests.post(
+                                        url=url,
+                                        params={
+                                            'access_token': token,
+                                            'from_group': from_group,
+                                            'owner_id': owner_id,
+                                            'message': message,
+                                            'attachments': attachments.strip(','),
+                                            'v': version_vk,
+                                        }
+                                    )
+                                except Exception as e:
+                                    print(f'Ошибка при публикации поста: {e}')
+                                else:
 
-                            print(response.json())
+                                    print(response.json())
 
-                        time.sleep(1)
+                                time.sleep(1)
 
-                if 'next_from' in wall:
-                    self.start_from = wall['next_from']
-                else:
-                    self.start_from = None
+                    if 'next_from' in wall:
+                        self.start_from = wall['next_from']
+                    else:
+                        self.start_from = None
 
-            start_time = current_time
+            #start_time = current_time
             print(f'Конец парсинга: {current_time}')
 
             time.sleep(20)
