@@ -206,7 +206,7 @@ class VK:
             #start_time = current_time
             print(f'Конец парсинга: {current_time}')
 
-            time.sleep(20)
+            time.sleep(3600)
 
 
 if __name__ == '__main__':
