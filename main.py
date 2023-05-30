@@ -154,7 +154,13 @@ class VK:
                         self.start_from = None
             self.start_time = current_time
             print(f'Конец парсинга: {current_time}')
+<<<<<<< HEAD
             time.sleep(3600)
+=======
+
+            time.sleep(3600)
+
+>>>>>>> fbe69efc3daba35398d6ed6e032f231a3929a428
 
 if __name__ == '__main__':
     VK()
